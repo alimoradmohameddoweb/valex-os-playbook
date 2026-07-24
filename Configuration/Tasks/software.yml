@@ -331,10 +331,9 @@ actions:
     option: 'install-directx'
     handleExitCodes: {0: log, '!0': error}
     errorAction: log
-  - !run:
-    path: '%TEMP%\dxextract'
-    exe: 'dxsetup.exe'
-    args: '/silent'
+  # !run path= does NOT expand %TEMP% → use !cmd instead for env var resolution
+  - !cmd:
+    command: '"%TEMP%\dxextract\dxsetup.exe" /silent'
     wait: true
     weight: 20
     option: 'install-directx'
