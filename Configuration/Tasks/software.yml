@@ -291,19 +291,22 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'directx'
-  - !powerShell:
-    command: |
-      $extractDir = Join-Path $env:TEMP 'dxextract'
-      New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
-      $p = Start-Process -FilePath 'directx_redist.exe' -ArgumentList '/Q','/C',"/T:`"$extractDir`"" -Wait -PassThru
-      if ($p.ExitCode -ne 0) { throw "IExpress extraction failed with exit code $($p.ExitCode)" }
-      $setup = Join-Path $extractDir 'dxsetup.exe'
-      if (-not (Test-Path $setup)) { throw "dxsetup.exe not found after extraction at: $setup" }
-      $p2 = Start-Process -FilePath $setup -ArgumentList '/silent' -Wait -PassThru
-      exit $p2.ExitCode
+  - !cmd:
+    command: >
+      if not exist "%TEMP%\dxextract" mkdir "%TEMP%\dxextract" &&
+      directx_redist.exe /Q /T:"%TEMP%\dxextract"
     exeDir: true
     wait: true
-    weight: 40
+    weight: 20
     option: 'install-directx'
-    handleExitCodes: {3010: log}
+    handleExitCodes: {0: log, '!0': error}
+    errorAction: log
+  - !run:
+    path: '%TEMP%\dxextract'
+    exe: 'dxsetup.exe'
+    args: '/silent'
+    wait: true
+    weight: 20
+    option: 'install-directx'
+    handleExitCodes: {0: log, 3010: log, '!0': error}
     errorAction: log
