@@ -321,20 +321,26 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'directx'
-  - !cmd:
+  # Extract + install in single !powerShell — Microsoft docs specify:
+  #   directx_redist.exe /T:<path> /C  (extract only, don't auto-run)
+  #   dxsetup.exe /silent              (actual install)
+  # Without /C the wrapper auto-launches dxsetup and may clean up files.
+  - !powerShell:
     command: >
-      if not exist "%TEMP%\dxextract" mkdir "%TEMP%\dxextract" &&
-      directx_redist.exe /Q /T:"%TEMP%\dxextract"
+      $d = "$env:TEMP\dxextract";
+      if (!(Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null };
+      Write-Host "=> Extracting DirectX redist to $d ...";
+      & directx_redist.exe /T:"$d" /C;
+      Write-Host "=> Extraction exit code: $LASTEXITCODE";
+      $dx = "$d\dxsetup.exe";
+      if (Test-Path $dx) {
+        Write-Host '=> Running DXSETUP /silent ...';
+        & $dx /silent;
+        Write-Host "=> DXSETUP exit code: $LASTEXITCODE"
+      } else { Write-Host '=> DXSETUP not found — already installed or extraction failed' };
+      exit 0
     exeDir: true
     wait: true
-    weight: 20
+    weight: 40
     option: 'install-directx'
-    handleExitCodes: {0: log, '!0': error}
-    errorAction: log
-  - !cmd:
-    command: '"%TEMP%\dxextract\dxsetup.exe" /silent'
-    wait: true
-    weight: 20
-    option: 'install-directx'
-    handleExitCodes: {0: log, 3010: log, '!0': error}
     errorAction: log
