@@ -167,11 +167,15 @@ actions:
 
   # =======================================================================
   # VISUAL C++ RUNTIMES (Official Microsoft sources)
+  # Uses !powerShell with registry pre-check to avoid MSI
+  # "Another version already installed" dialog on systems where
+  # a newer runtime is pre-installed by Windows Update or OEM.
   # =======================================================================
 
   - !status: {status: 'Installing Visual C++ Runtimes...'}
 
   # VC++ 2022/2019/2017/2015 — v14 (covers 99% of modern software)
+  # Registry check: HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64 → Installed=1
   - !download:
     option: 'install-vcredist'
     url: 'https://aka.ms/vc14/vc_redist.x64.exe'
@@ -179,17 +183,21 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'vcredist'
-  - !run:
+  - !powerShell:
+    command: >
+      $r = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64' -Name Installed -ErrorAction SilentlyContinue;
+      if ($r.Installed -ne 1) {
+        $p = Start-Process -Wait -PassThru -FilePath 'vc_redist.x64.exe' -ArgumentList '/install /quiet /norestart' -NoNewWindow;
+        Write-Host "=> VC++ 2015-2022 exit: $($p.ExitCode)"
+      } else { Write-Host '=> VC++ 2015-2022 already installed, skipping' }
     exeDir: true
-    exe: 'vc_redist.x64.exe'
-    args: '/install /quiet /norestart'
-    weight: 30
     wait: true
+    weight: 30
     option: 'install-vcredist'
-    handleExitCodes: {3010: log}
     errorAction: log
 
   # VC++ 2013 (12.0)
+  # Registry check: HKLM\SOFTWARE\Microsoft\VisualStudio\12.0\VC\Runtimes\X64 → Installed=1
   - !download:
     option: 'install-vcredist'
     url: 'https://aka.ms/highdpimfc2013x64enu'
@@ -197,17 +205,21 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'vcredist'
-  - !run:
+  - !powerShell:
+    command: >
+      $r = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\VisualStudio\12.0\VC\Runtimes\X64' -Name Installed -ErrorAction SilentlyContinue;
+      if ($r.Installed -ne 1) {
+        $p = Start-Process -Wait -PassThru -FilePath 'vc2013_redist.x64.exe' -ArgumentList '/install /quiet /norestart' -NoNewWindow;
+        Write-Host "=> VC++ 2013 exit: $($p.ExitCode)"
+      } else { Write-Host '=> VC++ 2013 already installed, skipping' }
     exeDir: true
-    exe: 'vc2013_redist.x64.exe'
-    args: '/install /quiet /norestart'
-    weight: 20
     wait: true
+    weight: 20
     option: 'install-vcredist'
-    handleExitCodes: {3010: log}
     errorAction: log
 
   # VC++ 2012 (11.0)
+  # Registry check: HKLM\SOFTWARE\Microsoft\VisualStudio\11.0\VC\Runtimes\X64 → Installed=1
   - !download:
     option: 'install-vcredist'
     url: 'https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe'
@@ -215,17 +227,21 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'vcredist'
-  - !run:
+  - !powerShell:
+    command: >
+      $r = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\VisualStudio\11.0\VC\Runtimes\X64' -Name Installed -ErrorAction SilentlyContinue;
+      if ($r.Installed -ne 1) {
+        $p = Start-Process -Wait -PassThru -FilePath 'vc2012_redist.x64.exe' -ArgumentList '/install /quiet /norestart' -NoNewWindow;
+        Write-Host "=> VC++ 2012 exit: $($p.ExitCode)"
+      } else { Write-Host '=> VC++ 2012 already installed, skipping' }
     exeDir: true
-    exe: 'vc2012_redist.x64.exe'
-    args: '/install /quiet /norestart'
-    weight: 20
     wait: true
+    weight: 20
     option: 'install-vcredist'
-    handleExitCodes: {3010: log}
     errorAction: log
 
   # VC++ 2010 (10.0)
+  # Registry check via Uninstall path display name
   - !download:
     option: 'install-vcredist'
     url: 'https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe'
@@ -233,17 +249,22 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'vcredist'
-  - !run:
+  - !powerShell:
+    command: >
+      $u = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*';
+      $found = Get-ItemProperty $u | Where-Object { $_.DisplayName -like '*Visual C++ 2010*' };
+      if (-not $found) {
+        $p = Start-Process -Wait -PassThru -FilePath 'vc2010_redist.x64.exe' -ArgumentList '/install /quiet /norestart' -NoNewWindow;
+        Write-Host "=> VC++ 2010 exit: $($p.ExitCode)"
+      } else { Write-Host '=> VC++ 2010 already installed, skipping' }
     exeDir: true
-    exe: 'vc2010_redist.x64.exe'
-    args: '/install /quiet /norestart'
-    weight: 20
     wait: true
+    weight: 20
     option: 'install-vcredist'
-    handleExitCodes: {3010: log}
     errorAction: log
 
   # VC++ 2008 (9.0) — x64
+  # Registry check via Uninstall path display name
   - !download:
     option: 'install-vcredist'
     url: 'https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe'
@@ -251,17 +272,22 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'vcredist'
-  - !run:
+  - !powerShell:
+    command: >
+      $u = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*';
+      $found = Get-ItemProperty $u | Where-Object { $_.DisplayName -like '*Visual C++ 2008*' };
+      if (-not $found) {
+        $p = Start-Process -Wait -PassThru -FilePath 'vc2008_redist.x64.exe' -ArgumentList '/q' -NoNewWindow;
+        Write-Host "=> VC++ 2008 exit: $($p.ExitCode)"
+      } else { Write-Host '=> VC++ 2008 already installed, skipping' }
     exeDir: true
-    exe: 'vc2008_redist.x64.exe'
-    args: '/q'
-    weight: 15
     wait: true
+    weight: 15
     option: 'install-vcredist'
-    handleExitCodes: {3010: log}
     errorAction: log
 
   # VC++ 2005 (8.0) — x64
+  # Registry check via Uninstall path display name
   - !download:
     option: 'install-vcredist'
     url: 'https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE'
@@ -269,14 +295,18 @@ actions:
     overwrite: true
     cpuArch: 'X64'
     package: 'vcredist'
-  - !run:
+  - !powerShell:
+    command: >
+      $u = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*';
+      $found = Get-ItemProperty $u | Where-Object { $_.DisplayName -like '*Visual C++ 2005*' };
+      if (-not $found) {
+        $p = Start-Process -Wait -PassThru -FilePath 'vc2005_redist.x64.exe' -ArgumentList '/q' -NoNewWindow;
+        Write-Host "=> VC++ 2005 exit: $($p.ExitCode)"
+      } else { Write-Host '=> VC++ 2005 already installed, skipping' }
     exeDir: true
-    exe: 'vc2005_redist.x64.exe'
-    args: '/q'
-    weight: 15
     wait: true
+    weight: 15
     option: 'install-vcredist'
-    handleExitCodes: {3010: log}
     errorAction: log
 
   # =======================================================================
