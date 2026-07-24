@@ -68,13 +68,8 @@ actions:
   # Remove "Share" from AllFilesystemObjects (EudynOS)
   - !registryKey: {path: 'HKLM\SOFTWARE\Classes\AllFilesystemObjects\shellex\ContextMenuHandlers\ModernSharing', operation: delete, option: clean-interface}
 
-  # Remove "Edit with Paint 3D" from context menu — single Remove-Item with wildcard
-  - !powerShell:
-    command: 'Remove-Item -Path "HKLM:\SOFTWARE\Classes\SystemFileAssociations\*" -Filter "3D Edit" -Recurse -Force -ErrorAction SilentlyContinue'
-    wait: true
-    weight: 5
-    option: clean-interface
-    errorAction: log
+  # Remove "Edit with Paint 3D" from context menu
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\SystemFileAssociations\3D Edit', operation: delete, option: clean-interface, errorAction: log}
 
   # =======================================================================
   # FILE EXPLORER — GENERAL

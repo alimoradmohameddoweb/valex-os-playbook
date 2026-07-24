@@ -264,7 +264,7 @@ actions:
   # VC++ 2005 (8.0) — x64
   - !download:
     option: 'install-vcredist'
-    url: 'https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208B48C4FB/vcredist_x64.exe'
+    url: 'https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE'
     destination: 'vc2005_redist.x64.exe'
     overwrite: true
     cpuArch: 'X64'

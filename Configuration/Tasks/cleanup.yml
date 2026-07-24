@@ -131,9 +131,9 @@ actions:
   - !powerShell:
     command: |
       $paths = @(
-        "$env:LOCALAPPDATA\Packages\MicrosoftWindows.Client.AIX_cw5n1h2txyewy",
-        "$env:ProgramData\Microsoft\Windows\AppRepository\Packages",
-        "${env:ProgramFiles}\WindowsApps"
+        $env:LOCALAPPDATA + '\Packages\MicrosoftWindows.Client.AIX_cw5n1h2txyewy',
+        $env:ProgramData + '\Microsoft\Windows\AppRepository\Packages',
+        ${env:ProgramFiles} + '\WindowsApps'
       )
       foreach ($base in $paths) {
         if (Test-Path $base) {
