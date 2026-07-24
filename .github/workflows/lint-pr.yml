@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   lint:
+    if: github.actor != 'dependabot[bot]'
     name: Validate PR Title
     runs-on: ubuntu-latest
     steps:
