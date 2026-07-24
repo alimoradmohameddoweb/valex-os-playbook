@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a Question
+    url: https://github.com/alimoradmohameddoweb/valex-os-playbook/discussions
+    about: Use GitHub Discussions for questions, ideas, and general help
+  - name: AME Wizard Documentation
+    url: https://docs.amelabs.net
+    about: Check the official AME Wizard documentation for action reference and playbook creation guides

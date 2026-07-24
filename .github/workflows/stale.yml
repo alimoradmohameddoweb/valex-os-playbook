@@ -1,0 +1,33 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'  # Weekly on Monday at 10:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  stale:
+    name: Mark stale issues and PRs
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-message: |
+            This issue has been inactive for 60 days. Please remove the `stale` label or comment to keep it open.
+            If no activity occurs within 14 days, this issue will be automatically closed.
+          stale-pr-message: |
+            This pull request has been inactive for 30 days. Please remove the `stale` label or comment to keep it open.
+            If no activity occurs within 14 days, this PR will be automatically closed.
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: 'bug,enhancement,security,never-stale'
+          exempt-pr-labels: 'never-stale'

@@ -1,0 +1,136 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Valex OS
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! The more detail you provide, the faster we can help.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      options:
+        - label: I have searched existing [issues](https://github.com/alimoradmohameddoweb/valex-os-playbook/issues) and this is not a duplicate
+          required: true
+        - label: I have read the [README](https://github.com/alimoradmohameddoweb/valex-os-playbook#readme) and [AME Wizard docs](https://docs.amelabs.net)
+          required: true
+        - label: I am running on a fresh Windows installation (or ISO-injected image)
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Valex OS Version
+      description: What version of the playbook are you using?
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: ame-version
+    attributes:
+      label: AME Wizard Version
+      description: What version of AME Wizard are you using?
+      placeholder: e.g. 0.7.20
+    validations:
+      required: true
+
+  - type: input
+    id: windows-build
+    attributes:
+      label: Windows Build
+      description: Your Windows build number (run `winver`)
+      placeholder: e.g. 22631.5039 (Windows 11 23H2)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the issue
+      placeholder: When applying the playbook, X happens instead of Y...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimum steps to trigger the bug
+      placeholder: |
+        1. Fresh install Windows 11 23H2
+        2. Download Valex OS v1.0.0
+        3. Open in AME Wizard, select all defaults
+        4. Observe error at phase 4 (Performance)
+      validations:
+        required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Please paste relevant AME Wizard log output. This will be automatically formatted.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem
+    validations:
+      required: false
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Application Mode
+      description: How were you applying the playbook?
+      options:
+        - Live OOBE (standard application)
+        - ISO injection
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: defender
+    attributes:
+      label: Windows Defender
+      description: Did you disable Defender during application?
+      options:
+        - Yes, disabled
+        - No, kept enabled
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: coc
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/alimoradmohameddoweb/valex-os-playbook/blob/main/.github/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

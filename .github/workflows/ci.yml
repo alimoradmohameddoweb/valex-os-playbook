@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-yaml:
+    name: Validate YAML
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate YAML syntax
+        shell: pwsh
+        run: |
+          # Validate all YAML files using Python (pre-installed on windows-latest)
+          # AME Wizard uses custom tags (!status:, !registryValue:, etc.) which aren't
+          # standard YAML. We register a multi-constructor to handle them gracefully.
+          pip install pyyaml -q --no-warn-script-location 2>$null
+          python -c @"
+          import glob, sys, yaml
+          def any_constructor(loader, tag_suffix, node):
+              if isinstance(node, yaml.MappingNode):
+                  return loader.construct_mapping(node)
+              if isinstance(node, yaml.SequenceNode):
+                  return loader.construct_sequence(node)
+              return loader.construct_scalar(node)
+          yaml.add_multi_constructor('!', any_constructor)
+          errors = 0
+          for f in glob.glob('Configuration/**/*.yml', recursive=True):
+              try:
+                  with open(f, 'r', encoding='utf-8') as fh:
+                      yaml.load(fh, Loader=yaml.FullLoader)
+              except yaml.YAMLError as e:
+                  print(f'::error file={f}::YAML parse error: {e}')
+                  errors += 1
+          if errors > 0:
+              sys.exit(1)
+          files = glob.glob('Configuration/**/*.yml', recursive=True)
+          print(f'All YAML files validated successfully ({len(files)} files).')
+          "@
+
+  validate-xml:
+    name: Validate XML
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate playbook.conf XML
+        shell: pwsh
+        run: |
+          try {
+            [xml]$conf = Get-Content 'playbook.conf' -Raw
+            $name = $conf.Playbook.Name
+            $ver = $conf.Playbook.Version
+            Write-Host "playbook.conf: $name v$ver - XML validates OK"
+
+            # Verify all task files referenced in main.yml exist
+            $mainYml = Get-Content 'Configuration/main.yml' -Raw
+            $taskFiles = [regex]::Matches($mainYml, "path:\s*'([^']+\.(?:yml|yaml))'")
+            $missing = @()
+            foreach ($match in $taskFiles) {
+              $taskFile = Join-Path 'Configuration' $match.Groups[1].Value.Trim()
+              if (-not (Test-Path $taskFile)) {
+                $missing += $taskFile
+              }
+            }
+            if ($missing.Count -gt 0) {
+              Write-Host "::error::Missing task files: $($missing -join ', ')"
+              exit 1
+            }
+            Write-Host "All referenced task files exist ($($taskFiles.Count) files)."
+          } catch {
+            Write-Host "::error::XML parse error: $_"
+            exit 1
+          }
+
+  build:
+    name: Build .apbx
+    runs-on: windows-latest
+    needs: [validate-yaml, validate-xml]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build archive
+        run: .\build.ps1
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: Valex-OS-apbx
+          path: '*.apbx'
+          retention-days: 7

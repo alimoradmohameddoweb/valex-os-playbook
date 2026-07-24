@@ -1,0 +1,20 @@
+# Normalize to CRLF on checkout for Windows-native project
+* text=auto eol=crlf
+
+# YAML files — keep CRLF
+*.yml text eol=crlf
+*.yaml text eol=crlf
+
+# XML playbook config
+*.conf text eol=crlf
+
+# PowerShell scripts
+*.ps1 text eol=crlf
+
+# Markdown docs
+*.md text eol=crlf
+
+# Binary files — no conversion
+*.png binary
+*.jpg binary
+*.apbx binary

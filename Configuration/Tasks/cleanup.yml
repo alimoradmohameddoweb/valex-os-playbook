@@ -1,0 +1,207 @@
+---
+title: System Cleanup
+description: >
+  Removes leftover scheduled tasks, clears residual caches, and deletes
+  orphaned system directories. Telemetry tasks are in privacy.yml.
+
+actions:
+  # =======================================================================
+  # SCHEDULED TASKS — APPLICATION EXPERIENCE (non-telemetry)
+  # NOTE: StartupAppTask, PcaPatchDbTask, UCPD velocity already deleted
+  # in privacy.yml — only unique tasks here.
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\Application Experience\SdbinstMergeDbTask', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — DIAGNOSTICS
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticResolver', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — CLOUD & SYNC
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\CloudExperienceHost\CreateObjectTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\SettingSync\BackupTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\SettingSync\NetworkStateChangeTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\SettingSync\BackgroundUploadTask', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — MAINTENANCE & MISC
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\Maintenance\WinSAT', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Power Efficiency Diagnostics\AnalyzeSystem', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Shell\FamilySafetyMonitor', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Shell\FamilySafetyRefresh', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Shell\FamilySafetyRefreshTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\License Manager\TempSignedLicenseExchange', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Clip\License Validation', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\ApplicationData\DsSvcCleanup', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\RetailDemo\CleanupOfflineContent', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Input\LocalUserSyncDataAvailable', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Input\MouseSyncDataAvailable', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Input\PenSyncDataAvailable', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Input\TouchpadSyncDataAvailable', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\International\Synchronize Language Settings', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\MemoryDiagnostic\ProcessMemoryDiagnosticEvents', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\MemoryDiagnostic\RunFullMemoryDiagnostic', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\MUI\LPRemove', operation: delete, errorAction: log}
+  # RegIdleBackup intentionally kept — periodic registry hive backups to
+  # %SystemRoot%\System32\config\RegBack provide a recovery path if
+  # registry corruption occurs. Runs rarely with negligible overhead.
+
+  # =======================================================================
+  # SCHEDULED TASKS — SPEECH & HANDWRITING
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\Speech\SpeechModelDownloadTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\InputPersonalization\TrainDataUploader', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — HELLO FACE & BIOMETRICS
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\HelloFace\FODCleanupTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\BioEnrollment\*', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — WINDOWS DEFENDER (gated by Defender toggle)
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance', operation: delete, option: 'disable-defender', errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Windows Defender\Windows Defender Cleanup', operation: delete, option: 'disable-defender', errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Windows Defender\Windows Defender Scheduled Scan', operation: delete, option: 'disable-defender', errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Windows Defender\Windows Defender Verification', operation: delete, option: 'disable-defender', errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\ExploitGuard\ExploitGuard MDM policy Refresh', operation: delete, option: 'disable-defender', errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — EDGE & OFFICE
+  # =======================================================================
+
+  - !scheduledTask: {path: '\MicrosoftEdgeUpdateTaskMachineCore', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\MicrosoftEdgeUpdateTaskMachineUA', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Setup\EOSNotify', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Setup\EOSNotify2', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Setup\SetupCleanupTask', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — XBOX
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\XblGameSave\XblGameSaveTask', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\XblGameSave\XblGameSaveTaskLogon', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — UPDATE RESIDUALS
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\UpdateOrchestrator\Schedule Scan', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\UpdateOrchestrator\Schedule Scan Static Task', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\UpdateOrchestrator\USO_UxBroker', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\UpdateOrchestrator\UpdateModelTask', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — AI & COPILOT
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\WindowsAI\*', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Workplace Join\*', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # SCHEDULED TASKS — DEVICE MANAGEMENT (Device Information already
+  # deleted in privacy.yml — only unique management tasks here)
+  # =======================================================================
+
+  - !scheduledTask: {path: '\Microsoft\Windows\Management\Provisioning\Cellular', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\Flighting\*', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\Microsoft\Windows\PushToInstall\*', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # FILE CLEANUP
+  # =======================================================================
+
+  # Clean RetailDemo offline content
+  - !cmd: {command: 'if exist "%WINDIR%\RetailDemo" rd /s /q "%WINDIR%\RetailDemo"', wait: true, weight: 5, errorAction: log}
+
+  # Remove WindowsAI / Recall data folder
+
+  - !powerShell:
+    command: |
+      $paths = @(
+        "$env:LOCALAPPDATA\Packages\MicrosoftWindows.Client.AIX_cw5n1h2txyewy",
+        "$env:ProgramData\Microsoft\Windows\AppRepository\Packages",
+        "${env:ProgramFiles}\WindowsApps"
+      )
+      foreach ($base in $paths) {
+        if (Test-Path $base) {
+          Get-ChildItem $base -Filter 'MicrosoftWindows.Client.AIX*' -ErrorAction SilentlyContinue |
+          ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+      }
+    wait: true
+    weight: 5
+    errorAction: log
+
+  # Remove leftover Copilot / BingChat directories
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\Microsoft\BingChat" rd /s /q "%LOCALAPPDATA%\Microsoft\BingChat"', wait: true, weight: 5, errorAction: log}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\Microsoft\Edge Copilot" rd /s /q "%LOCALAPPDATA%\Microsoft\Edge Copilot"', wait: true, weight: 5, errorAction: log}
+
+  # Remove leftover Windows Defender directories (gated by Defender toggle)
+  # Uses takeown + icacls to bypass Defender's protected directory permissions,
+  # then recursively deletes. Same approach as windows-defender-remover.
+  - !cmd:
+    command: >-
+      takeown /f "%ProgramData%\Microsoft\Windows Defender" /r /d y 2>nul &
+      icacls "%ProgramData%\Microsoft\Windows Defender" /grant administrators:F /t 2>nul &
+      rd /s /q "%ProgramData%\Microsoft\Windows Defender" 2>nul
+    wait: true
+    weight: 30
+    option: 'disable-defender'
+    errorAction: log
+  - !cmd:
+    command: >-
+      takeown /f "%ProgramFiles%\Windows Defender" /r /d y 2>nul &
+      icacls "%ProgramFiles%\Windows Defender" /grant administrators:F /t 2>nul &
+      rd /s /q "%ProgramFiles%\Windows Defender" 2>nul
+    wait: true
+    weight: 30
+    option: 'disable-defender'
+    errorAction: log
+  - !cmd:
+    command: >-
+      takeown /f "%ProgramFiles(x86)%\Windows Defender" /r /d y 2>nul &
+      icacls "%ProgramFiles(x86)%\Windows Defender" /grant administrators:F /t 2>nul &
+      rd /s /q "%ProgramFiles(x86)%\Windows Defender" 2>nul
+    wait: true
+    weight: 30
+    option: 'disable-defender'
+    errorAction: log
+  - !cmd:
+    command: >-
+      takeown /f "%ProgramFiles%\Windows Defender Advanced Threat Protection" /r /d y 2>nul &
+      icacls "%ProgramFiles%\Windows Defender Advanced Threat Protection" /grant administrators:F /t 2>nul &
+      rd /s /q "%ProgramFiles%\Windows Defender Advanced Threat Protection" 2>nul
+    wait: true
+    weight: 30
+    option: 'disable-defender'
+    errorAction: log
+
+  # =======================================================================
+  # NEW USER PROFILE CLEANUP (AME_UserHive_Default)
+  # =======================================================================
+
+  # Clear W11 Start Menu pinned items for new users
+  # Guarded by Test-Path — the AME_UserHive_Default hive is only loaded during OOBE
+  # or after a reg load operation. On live systems it may not exist, which is expected.
+  - !powerShell:
+    command: |
+      $hive = 'HKU:\AME_UserHive_Default'
+      if (Test-Path $hive) {
+        Remove-ItemProperty -Path "$hive\Software\Microsoft\Windows\CurrentVersion\Start" -Name 'Config' -Force -ErrorAction SilentlyContinue
+      }
+    wait: true
+    weight: 3
+    errorAction: log

@@ -1,0 +1,172 @@
+---
+title: Finalization
+description: >
+  Performs final system optimization — branding, wallpaper, cleanup,
+  performance counters, WMI, font cache, network reset, MSI mode,
+  boot configuration, DMA remapping, and GPU shader cache clearing.
+
+actions:
+  # =======================================================================
+  # ADVANCED CLEANUP
+  # =======================================================================
+
+  - !status: {status: 'Running advanced cleanup...'}
+  - !cmd: {command: 'del /f /s /q "%TEMP%\*" 2>nul', weight: 5, wait: true, errorAction: log}
+  - !cmd: {command: 'del /f /s /q "%WINDIR%\Temp\*" 2>nul', weight: 5, wait: true, errorAction: log}
+  - !cmd: {command: 'DISM /Online /Cleanup-Image /StartComponentCleanup /NoRestart', weight: 30, wait: true, timeout: 300000, errorAction: log}
+
+  # =======================================================================
+  # VALEX OS BRANDING
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation', value: 'Manufacturer', type: REG_SZ, data: 'Valex OS'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation', value: 'Model', type: REG_SZ, data: 'Valex OS 1.0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation', value: 'SupportURL', type: REG_SZ, data: 'https://github.com/alimoradmohameddoweb/valex-os-playbook'}
+
+  # =======================================================================
+  # VALEX OS WALLPAPER
+  # =======================================================================
+
+  - !status: {status: 'Applying Valex OS wallpaper...'}
+
+  - !cmd:
+    command: |
+      if not exist "%WINDIR%\Web\Wallpaper\ValexOS\" mkdir "%WINDIR%\Web\Wallpaper\ValexOS\"
+      copy /y "%cd%\Media\Valex-background.jpg" "%WINDIR%\Web\Wallpaper\ValexOS\Valex-background.jpg" >nul 2>&1
+      copy /y "%cd%\Media\Valex-lockscreen.jpg" "%WINDIR%\Web\Wallpaper\ValexOS\Valex-lockscreen.jpg" >nul 2>&1
+    exeDir: true
+    wait: true
+    weight: 5
+    option: configure-wallpaper
+    errorAction: log
+
+  - !registryValue: {path: 'HKCU\Control Panel\Desktop', value: 'WallPaper', type: REG_SZ, data: '%SystemRoot%\Web\Wallpaper\ValexOS\Valex-background.jpg', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKCU\Control Panel\Desktop', value: 'WallpaperStyle', type: REG_SZ, data: '10', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKCU\Control Panel\Desktop', value: 'TileWallpaper', type: REG_SZ, data: '0', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers', value: 'BackgroundHistoryPath0', type: REG_SZ, data: '%SystemRoot%\Web\Wallpaper\ValexOS\Valex-background.jpg', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers', value: 'BackgroundType', type: REG_DWORD, data: '0', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization', value: 'LockScreenOverlaysDisabled', type: REG_DWORD, data: '1', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP', value: 'LockScreenImagePath', type: REG_SZ, data: '%SystemRoot%\Web\Wallpaper\ValexOS\Valex-lockscreen.jpg', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP', value: 'LockScreenImageUrl', type: REG_SZ, data: '%SystemRoot%\Web\Wallpaper\ValexOS\Valex-lockscreen.jpg', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\PersonalizationCSP', value: 'LockScreenImageStatus', type: REG_DWORD, data: '1', option: 'configure-wallpaper'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization', value: 'LockScreenImage', type: REG_SZ, data: '%SystemRoot%\Web\Wallpaper\ValexOS\Valex-lockscreen.jpg', option: 'configure-wallpaper'}
+
+  # =======================================================================
+  # PERFORMANCE COUNTERS
+  # =======================================================================
+
+  - !status: {status: 'Rebuilding performance counters...'}
+  - !cmd: {command: 'lodctr /R >nul 2>&1', weight: 10, wait: true, errorAction: log}
+  - !cmd: {command: 'winmgmt /resyncperf >nul 2>&1', weight: 5, wait: true, errorAction: log}
+
+  # =======================================================================
+  # WMI REPOSITORY
+  # =======================================================================
+
+  - !status: {status: 'Rebuilding WMI repository...'}
+  - !cmd: {command: 'winmgmt /salvagerepository >nul 2>&1', weight: 10, wait: true, errorAction: log}
+
+  # =======================================================================
+  # FONT CACHE
+  # =======================================================================
+
+  - !status: {status: 'Rebuilding font cache...'}
+  - !taskKill: {name: 'FontCache', errorAction: log}
+  - !service: {name: 'FontCache', operation: stop, errorAction: log}
+  - !cmd: {command: 'del /f /s /q "%WINDIR%\ServiceProfiles\LocalService\AppData\Local\FontCache\*" 2>nul', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'if exist "%WINDIR%\ServiceProfiles\LocalService\AppData\Local\FontCache-System\*" del /f /s /q "%WINDIR%\ServiceProfiles\LocalService\AppData\Local\FontCache-System\*" 2>nul', weight: 3, wait: true, errorAction: log}
+  - !service: {name: 'FontCache', operation: start, errorAction: log}
+
+  # =======================================================================
+  # NETWORK RESET
+  # =======================================================================
+
+  - !status: {status: 'Resetting network stack...'}
+  - !cmd: {command: 'ipconfig /flushdns >nul 2>&1', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'netsh winsock reset >nul 2>&1', weight: 5, wait: true, errorAction: log}
+  - !cmd: {command: 'arp -d * >nul 2>&1', weight: 3, wait: true, errorAction: log}
+
+  # =======================================================================
+  # MSI MODE (MESSAGE SIGNALED INTERRUPTS)
+  # =======================================================================
+
+  - !status: {status: 'Enabling MSI mode for high-performance devices...'}
+  - !powerShell:
+    command: >
+      Get-CimInstance -ClassName Win32_PnPEntity -ErrorAction SilentlyContinue |
+      Where-Object { $_.PNPDeviceID -match 'PCI\\VEN_' -and $_.ConfigManagerErrorCode -eq 0 } |
+      ForEach-Object {
+        $p = $_.PNPDeviceID
+        $b = 'HKLM:\SYSTEM\CurrentControlSet\Enum\' + $p.Replace('\', '\')
+        $r = $b + '\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties'
+        if (Test-Path $r) {
+          Set-ItemProperty -Path $r -Name MSISupported -Value 1 -Type DWord -Force
+          $a = $b + '\Device Parameters\Interrupt Management\Affinity Policy'
+          if (Test-Path $a) { Remove-ItemProperty -Path $a -Name DevicePriority -Force -ErrorAction SilentlyContinue }
+        }
+      }
+    weight: 20
+    wait: true
+    errorAction: log
+
+  # =======================================================================
+  # BOOT OPTIMIZATION (BCDEDIT)
+  # =======================================================================
+
+  - !status: {status: 'Applying boot optimizations...'}
+  - !cmd:
+    command: >
+      bcdedit /set bootlog no >nul 2>&1 &
+      bcdedit /set bootstatuspolicy DisplayAllFailures >nul 2>&1 &
+      bcdedit /set bootmenupolicy Legacy >nul 2>&1 &
+      bcdedit /timeout 3 >nul 2>&1 &
+      bcdedit /set disabledynamictick yes >nul 2>&1 &
+      bcdedit /set tscsyncpolicy Enhanced >nul 2>&1
+    weight: 20
+    wait: true
+    errorAction: log
+
+  # Disable hypervisor (VBS) — only when user opted out
+  - !cmd:
+    command: 'bcdedit /set {current} hypervisorlaunchtype off >nul 2>&1'
+    weight: 5
+    wait: true
+    option: disable-vbs
+    errorAction: log
+
+  # =======================================================================
+  # DMA REMAPPING
+  # =======================================================================
+
+  - !status: {status: 'Applying kernel and DMA optimizations...'}
+  - !powerShell:
+    command: |
+      $items = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\*' -Name DmaRemappingCompatible -ErrorAction SilentlyContinue
+      foreach ($item in $items) {
+        Set-ItemProperty -Path $item.PSPath -Name 'DmaRemappingCompatible' -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+      }
+    weight: 10
+    wait: true
+    errorAction: log
+
+  # =======================================================================
+  # GPU SHADER CACHES
+  # =======================================================================
+
+  - !status: {status: 'Clearing GPU shader caches...'}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\D3DSCache" rd /s /q "%LOCALAPPDATA%\D3DSCache"', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\NVIDIA\DXCache" rd /s /q "%LOCALAPPDATA%\NVIDIA\DXCache"', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\NVIDIA\GLCache" rd /s /q "%LOCALAPPDATA%\NVIDIA\GLCache"', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\AMD\DXCache" rd /s /q "%LOCALAPPDATA%\AMD\DXCache"', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\AMD\GLCache" rd /s /q "%LOCALAPPDATA%\AMD\GLCache"', weight: 3, wait: true, errorAction: log}
+  - !cmd: {command: 'if exist "%LOCALAPPDATA%\Intel\ShaderCache" rd /s /q "%LOCALAPPDATA%\Intel\ShaderCache"', weight: 3, wait: true, errorAction: log}
+
+  # =======================================================================
+  # EXPLORER RESTART
+  # =======================================================================
+
+  - !cmd:
+    command: 'taskkill /f /im explorer.exe >nul 2>&1 & start explorer.exe'
+    weight: 5
+    wait: true
+    errorAction: log

@@ -1,0 +1,639 @@
+---
+title: Security Hardening
+description: >
+  Hardens TLS/SSL configuration, disables weak ciphers, enforces strong
+  cryptographic defaults, hardens SMB, and configures exploit mitigations.
+
+actions:
+  # =======================================================================
+  # TLS/SSL — DISABLE WEAK PROTOCOLS / ENABLE MODERN
+  # =======================================================================
+
+  # Consolidated PowerShell loop: disables SSL 2.0, 3.0, TLS 1.0, 1.1;
+  # enables TLS 1.2 and 1.3 — both Client and Server sides.
+  - !powerShell:
+    command: |
+      $base = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols'
+      # Disable obsolete protocols
+      @('SSL 2.0','SSL 3.0','TLS 1.0','TLS 1.1') | ForEach-Object {
+        foreach ($side in @('Client','Server')) {
+          $p = "$base\$_\$side"
+          $null = New-Item -Path $p -Force
+          Set-ItemProperty -Path $p -Name 'Enabled' -Value 0 -Type DWord
+          Set-ItemProperty -Path $p -Name 'DisabledByDefault' -Value 1 -Type DWord
+        }
+      }
+      # Enable modern protocols (TLS 1.2, 1.3)
+      @('TLS 1.2','TLS 1.3') | ForEach-Object {
+        foreach ($side in @('Client','Server')) {
+          $p = "$base\$_\$side"
+          $null = New-Item -Path $p -Force
+          Set-ItemProperty -Path $p -Name 'Enabled' -Value 1 -Type DWord
+          Set-ItemProperty -Path $p -Name 'DisabledByDefault' -Value 0 -Type DWord
+        }
+      }
+    wait: true
+    weight: 5
+    errorAction: log
+
+  # =======================================================================
+  # DISABLE WEAK CIPHERS
+  # =======================================================================
+
+  # Consolidated PowerShell loop: disables all weak ciphers (RC4, DES,
+  # 3DES, RC2 variants, and NULL) in one pass.
+  - !powerShell:
+    command: |
+      $base = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Ciphers'
+      @('RC4 40/128','RC4 56/128','RC4 64/128','RC4 128/128',
+        'DES 56/56','Triple DES 168','Triple DES 168/168',
+        'RC2 40/128','RC2 56/128','RC2 128/128','NULL') | ForEach-Object {
+        $p = "$base\$_"
+        $null = New-Item -Path $p -Force
+        Set-ItemProperty -Path $p -Name 'Enabled' -Value 0 -Type DWord
+      }
+    wait: true
+    weight: 5
+    errorAction: log
+
+  # =======================================================================
+  # STRONG DIFFIE-HELLMAN PARAMETERS
+  # =======================================================================
+
+  # Enforce minimum DH key size of 2048 bits
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\KeyExchangeAlgorithms\Diffie-Hellman', value: 'ServerMinKeyBitLength', type: REG_DWORD, data: '2048'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\KeyExchangeAlgorithms\Diffie-Hellman', value: 'ClientMinKeyBitLength', type: REG_DWORD, data: '2048'}
+
+  # =======================================================================
+  # .NET STRONG CRYPTOGRAPHY
+  # =======================================================================
+
+  # Force .NET Framework to use TLS 1.2+ by default
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\.NETFramework\v4.0.30319', value: 'SchUseStrongCrypto', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\.NETFramework\v4.0.30319', value: 'SystemDefaultTlsVersions', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v4.0.30319', value: 'SchUseStrongCrypto', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v4.0.30319', value: 'SystemDefaultTlsVersions', type: REG_DWORD, data: '1'}
+
+  # Force .NET Framework v2.0 to use strong crypto (RapidOS)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\.NETFramework\v2.0.50727', value: 'SchUseStrongCrypto', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\.NETFramework\v2.0.50727', value: 'SystemDefaultTlsVersions', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v2.0.50727', value: 'SchUseStrongCrypto', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\.NETFramework\v2.0.50727', value: 'SystemDefaultTlsVersions', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # TLS RENEGOTIATION SECURITY
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL', value: 'AllowInsecureRenegoClients', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL', value: 'AllowInsecureRenegoServers', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL', value: 'DisableRenegoOnClient', type: REG_DWORD, data: '1'}
+  # Disable TLS renegotiation on server side (RapidOS)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL', value: 'DisableRenegoOnServer', type: REG_DWORD, data: '1'}
+  # Enable TLS Fallback SCSV to prevent protocol downgrade attacks (RapidOS)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL', value: 'UseScsvForTls', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL', value: 'UseHmacSha256', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # SMB HARDENING
+  # =======================================================================
+
+  # Disable SMBv1 (major security risk)
+  - !cmd: {command: 'DISM /Online /Disable-Feature /FeatureName:"SMB1Protocol" /NoRestart', wait: true, weight: 30, errorAction: log}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', value: 'SMB1', type: REG_DWORD, data: '0'}
+
+  # Enable SMB signing (prevents MITM)
+  # Server: require signing for inbound connections (hardened)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', value: 'RequireSecuritySignature', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', value: 'EnableSecuritySignature', type: REG_DWORD, data: '1'}
+  # Workstation: enable but don't require — preserves access to older NAS/Samba shares
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters', value: 'RequireSecuritySignature', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters', value: 'EnableSecuritySignature', type: REG_DWORD, data: '1'}
+
+  # Enable SMB encryption (server-side; clients negotiate automatically)
+  # NOTE: Only affects inbound file-sharing connections. Most single-user desktops
+  # never host SMB shares, so this has no practical impact. Older SMB2-only clients
+  # that cannot negotiate encryption will be rejected — acceptable trade-off.
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', value: 'EncryptData', type: REG_DWORD, data: '1'}
+  # Block guest account access to SMB shares (RapidOS)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', value: 'EnableGuestAccount', type: REG_DWORD, data: '0'}
+
+  # =======================================================================
+  # CREDENTIAL PROTECTION
+  # =======================================================================
+
+  # Disable WDigest plaintext credential caching
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest', value: 'UseLogonCredential', type: REG_DWORD, data: '0'}
+
+  # Disable caching of domain logon credentials
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon', value: 'CachedLogonsCount', type: REG_SZ, data: '0'}
+
+  # Show last logged-in username on login screen (user-friendly default)
+  # DontDisplayLastUserName=0 ensures the logon screen shows the user's name
+  # instead of forcing manual username entry ("Other user") which confuses beginners.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'DontDisplayLastUserName', type: REG_DWORD, data: '0'}
+
+  # =======================================================================
+  # UAC — BALANCED (secure but not intrusive)
+  # =======================================================================
+
+  # Keep UAC enabled (required for Store apps and modern security)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'EnableLUA', type: REG_DWORD, data: '1'}
+  # Admin prompt: notify only when apps try to make changes (Windows default)
+  # 5 = Prompt for consent (no secure desktop) — less intrusive, still secure
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'ConsentPromptBehaviorAdmin', type: REG_DWORD, data: '5'}
+  # Non-admin users: auto-deny elevation requests
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'ConsentPromptBehaviorUser', type: REG_DWORD, data: '0'}
+  # No secure desktop dimming (faster, less jarring)
+  # Trade-off: disabling the secure desktop overlay means a malicious app could
+  # theoretically spoof the UAC dialog. Acceptable for single-user desktops
+  # where the admin prompt itself is the primary gate.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'PromptOnSecureDesktop', type: REG_DWORD, data: '0'}
+  # Don't require code signing for elevated apps (allows unsigned software)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'ValidateAdminCodeSignatures', type: REG_DWORD, data: '0'}
+  # Don't filter built-in Administrator token (single-user desktop scenario)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'FilterAdministratorToken', type: REG_DWORD, data: '0'}
+  # Auto-detect installers and elevate (standard Windows behavior)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'EnableInstallerDetection', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # WINDOWS DEFENDER — COMPLETE DISABLE (gated by disable-defender)
+  # When user selects "Disable Defender" in the setup wizard, this
+  # fully disables Windows Defender antimalware engine, real-time
+  # protection, cloud protection, drivers, services, SmartScreen,
+  # script host, UI, and removes registry/service/driver artifacts.
+  # =======================================================================
+
+  # --- Smart App Control ---
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\CI\Policy', value: 'VerifiedAndReputablePolicyState', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # --- SmartScreen: disable at all levels ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\SmartScreen', value: 'ConfigureAppInstallControlEnabled', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\SmartScreen', value: 'ConfigureAppInstallControl', type: REG_SZ, data: 'Anywhere', option: 'disable-defender'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\AppHost', value: 'EnableWebContentEvaluation', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\AppHost', value: 'ContentEvaluation', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer', value: 'SmartScreenEnabled', type: REG_SZ, data: 'Off', option: 'disable-defender'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Edge\SmartScreenEnabled', value: 'Enabled', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter', value: 'EnabledV9', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # --- Security Center: systray, UI lockdown, notifications ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Systray', value: 'HideSystray', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Notifications', value: 'DisableNotifications', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Notifications', value: 'DisableEnhancedNotifications', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Virus and threat protection', value: 'UILockdown', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\App and Browser protection', value: 'UILockdown', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Firewall and network protection', value: 'UILockdown', type: REG_DWORD, data: '1', option: 'disable-defender'}
+
+  # --- Group Policy: Disable Defender antimalware engine ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender', value: 'DisableAntiSpyware', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender', value: 'DisableAntiVirus', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender', value: 'ServiceKeepAlive', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender', value: 'PUAProtection', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # --- Group Policy: Disable Real-Time Protection ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableRealtimeMonitoring', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableBehaviorMonitoring', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableIOAVProtection', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableOnAccessProtection', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableRoutinelyTakingAction', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableScanOnRealtimeEnable', type: REG_DWORD, data: '1', option: 'disable-defender'}
+
+  # --- Disable Cloud-Based Protection & Sample Submission ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet', value: 'SpynetReporting', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet', value: 'SubmitSamplesConsent', type: REG_DWORD, data: '2', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\MpEngine', value: 'MpCloudBlockLevel', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # --- Disable Tamper Protection ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Defender\Features', value: 'TamperProtection', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Defender\Features', value: 'TamperProtectionSource', type: REG_DWORD, data: '2', option: 'disable-defender'}
+
+  # --- Disable Defender Drivers (prevent loading at boot) ---
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdFilter', value: 'Start', type: REG_DWORD, data: '4', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdNisDrv', value: 'Start', type: REG_DWORD, data: '4', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdBoot', value: 'Start', type: REG_DWORD, data: '4', option: 'disable-defender'}
+
+  # --- Disable Defender Services ---
+  - !service: {name: 'WinDefend', operation: change, startup: 4, option: 'disable-defender', errorAction: log}
+  - !service: {name: 'WdNisSvc', operation: change, startup: 4, option: 'disable-defender', errorAction: log}
+  - !service: {name: 'SecurityHealthService', operation: change, startup: 4, option: 'disable-defender', errorAction: log}
+  - !service: {name: 'wscsvc', operation: change, startup: 4, option: 'disable-defender', errorAction: log}
+  - !service: {name: 'Sense', operation: delete, option: 'disable-defender', errorAction: log, iso: true, oobe: false}
+  - !service: {name: 'webthreatdefsvc', operation: change, startup: 4, option: 'disable-defender', errorAction: log}
+  - !service: {name: 'webthreatdefusersvc', operation: change, startup: 4, option: 'disable-defender', errorAction: log}
+
+  # --- Signature updates: disable scheduled, battery, startup ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates', value: 'DisableScheduledSignatureUpdateOnBattery', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates', value: 'SignatureDisableNotification', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates', value: 'RealtimeSignatureDelivery', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates', value: 'UpdateOnStartUp', type: REG_DWORD, data: '0', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates', value: 'DisableScanOnUpdate', type: REG_DWORD, data: '1', option: 'disable-defender'}
+
+  # --- Remove SecurityHealth startup entry ---
+  - !cmd: {command: 'reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f 2>nul', wait: true, weight: 3, option: 'disable-defender', errorAction: log}
+
+  # --- Remove 'Open file - Security Warning' dialog ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Associations', value: 'ModRiskFileTypes', type: REG_SZ, data: '.bat;.exe;.reg;.vbs;.chm;.msi;.js;.cmd', option: 'disable-defender'}
+
+  # --- Disable Watson generic reports (Exploit Guard) ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\Network Protection', value: 'DisableGenericRePorts', type: REG_DWORD, data: '1', option: 'disable-defender'}
+
+  # --- Windows Script Host (only safe to disable when no AV) ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Script Host\Settings', value: 'Enabled', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # =======================================================================
+  # DEFENDER REMOVAL — ENHANCED (gated by disable-defender)
+  # PolicyManager values, Microsoft Antimalware path, AppX removal,
+  # health state, settings visibility, ISO-only service key/CLSID/WMI deletion.
+  # =======================================================================
+
+  # --- PolicyManager default values (bypass local GP overrides) — consolidated ---
+  - !powerShell:
+    command: |
+      $base = 'HKLM:\SOFTWARE\Microsoft\PolicyManager\default\Defender'
+      $settings = @{
+        'AllowRealtimeMonitoring' = 0; 'AllowBehaviorMonitoring' = 0
+        'AllowCloudProtection' = 0; 'AllowIOAVProtection' = 0
+        'AllowOnAccessProtection' = 0; 'AllowIntrusionPreventionSystem' = 0
+        'EnableNetworkProtection' = 0; 'PUAProtection' = 0
+        'SubmitSamplesConsent' = 0; 'DisableCatchupFullScan' = 1
+        'DisableCatchupQuickScan' = 1; 'AllowArchiveScanning' = 0
+        'AllowEmailScanning' = 0; 'CloudBlockLevel' = 0
+        'EnableControlledFolderAccess' = 0; 'AllowUserUIAccess' = 0
+        'AllowScriptScanning' = 0; 'AvgCPULoadFactor' = 50
+        'CheckForSignaturesBeforeRunningScan' = 0; 'CloudExtendedTimeout' = 0
+        'DaysToRetainCleanedMalware' = 0; 'AllowFullScanRemovableDriveScanning' = 0
+        'AllowFullScanOnMappedNetworkDrives' = 0; 'AllowScanningNetworkFiles' = 0
+        'SignatureUpdateInterval' = 24; 'ScheduleScanDay' = 0
+        'ScheduleScanTime' = 0; 'RealTimeScanDirection' = 0
+        'EnableLowCPUPriority' = 1
+      }
+      foreach ($key in $settings.Keys) {
+        Set-ItemProperty -Path $base -Name $key -Value $settings[$key] -Type DWord -Force -ErrorAction SilentlyContinue
+      }
+    option: 'disable-defender'
+    weight: 15
+    wait: true
+    errorAction: log
+
+  # --- Microsoft Antimalware policy path (separate from Windows Defender) ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Microsoft Antimalware', value: 'DisableAntiSpyware', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Microsoft Antimalware', value: 'DisableAntiVirus', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Microsoft Antimalware', value: 'ServiceKeepAlive', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # --- Exclusions, NIS, Scan, Reporting, UX ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions', value: 'DisableAutoExclusions', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\NIS\Consumers\IPS', value: 'DisableSignatureRetirement', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\NIS\Consumers\IPS', value: 'DisableProtocolRecognition', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Policy Manager', value: 'DisableScanningNetworkFiles', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Scan', value: 'DisableCatchupQuickScan', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Scan', value: 'DisableHeuristics', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Scan', value: 'DisableReparsePointScanning', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Scan', value: 'LowCpuPriority', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Reporting', value: 'DisableEnhancedNotifications', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Reporting', value: 'DisableGenericRePorts', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\UX Configuration', value: 'SuppressRebootNotification', type: REG_DWORD, data: '1', option: 'disable-defender'}
+
+  # --- Windows Security Center override ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Security Center', value: 'AntiVirusOverride', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Security Center', value: 'FirewallOverride', type: REG_DWORD, data: '1', option: 'disable-defender'}
+
+  # --- SecurityHealth AppX removal (prevents Windows Security UI from starting) ---
+  - !appx: {type: family, name: '*SecHealthUI*', operation: remove, errorAction: log, option: 'disable-defender'}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned\Microsoft.Windows.SecHealthUI_cw5n1h2txyewy', operation: add, option: 'disable-defender'}
+
+  # --- Security Health state: mark as disabled ---
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows Security Health\State', value: 'Disabled', type: REG_DWORD, data: '1', option: 'disable-defender'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Security Health\Platform', value: 'Registered', type: REG_DWORD, data: '0', option: 'disable-defender'}
+
+  # --- Hide Windows Defender page in Settings ---
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'SettingsPageVisibility', type: REG_SZ, data: 'hide:windowsdefender', option: 'disable-defender'}
+
+  # --- Remove Defender Security Center from Control Panel ---
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel\NameSpace\{BB64F8A7-BEE7-4E1A-AB8D-7D8273F7FDB6}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # =======================================================================
+  # DEFENDER REMOVAL — ISO-ONLY (gated by disable-defender)
+  # During ISO injection, physically delete service/driver registry keys,
+  # WMI autologgers, COM class registrations, WinRT activations, firewall
+  # rules, and shell associations so Defender cannot activate at all.
+  # Irreversible without image repair. Live mode uses startup=4 above.
+  # =======================================================================
+
+  # --- Core Defender service keys ---
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WinDefend', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdFilter', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdNisDrv', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdNisSvc', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WdBoot', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\SecurityHealthService', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\wscsvc', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\Sense', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\webthreatdefsvc', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\webthreatdefusersvc', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- Windows 11 24H2+ Defender core/minifilter services ---
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\MsSecCore', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\MsSecFlt', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\MsSecWfp', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- Windows Security Center broker services ---
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\SgrmAgent', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\SgrmBroker', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- Pluton security processor services (24H2+) ---
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\PlutonHsp2', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\PlutonHeci', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\Hsp', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- WMI Autologger deletion (prevents trace re-activation) ---
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\WMI\Autologger\DefenderAuditLogger', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\WMI\Autologger\DefenderApiLogger', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- WebThreatDefense WinRT activatable class IDs ---
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.OneCore.WebThreatDefense.Service.UserSessionServiceManager', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.OneCore.WebThreatDefense.ThreatExperienceManager.ThreatExperienceManager', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.OneCore.WebThreatDefense.ThreatResponseEngine.ThreatDecisionEngine', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.OneCore.WebThreatDefense.Configuration.WTDUserSettings', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- WebThreatDefense svchost group removal ---
+  - !registryKey: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost\WebThreatDefense', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- CLSID COM class registrations (prevents Defender COM activation) ---
+  - !registryKey: {path: 'HKCR\CLSID\{2781761E-28E0-4109-99FE-B9D127C57AFE}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{2781761E-28E2-4109-99FE-B9D127C57AFE}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{195B4D07-3DE2-4744-BBF2-D90121AE785B}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{361290c0-cb1b-49ae-9f3e-ba1cbe5dab35}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{45F2C32F-ED16-4C94-8493-D72EF93A051B}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{6CED0DAA-4CDE-49C9-BA3A-AE163DC3D7AF}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{8a696d12-576b-422e-9712-01b9dd84b446}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{8C9C0DB7-2CBA-40F1-AFE0-C55740DD91A0}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{A2D75874-6750-4931-94C1-C99D3BC9D0C7}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{A7C452EF-8E9F-42EB-9F2B-245613CA0DC9}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{DACA056E-216A-4FD1-84A6-C306A017ECEC}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{E3C9166D-1D39-4D4E-A45D-BC7BE9B00578}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{F6976CF5-68A8-436C-975A-40BE53616D59}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\CLSID\{E48B2549-D510-4A76-8A5F-FC126A6215F0}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- 32-bit (WOW6432Node) CLSID mirror ---
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{2781761E-28E0-4109-99FE-B9D127C57AFE}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{2781761E-28E2-4109-99FE-B9D127C57AFE}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{195B4D07-3DE2-4744-BBF2-D90121AE785B}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{361290c0-cb1b-49ae-9f3e-ba1cbe5dab35}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{45F2C32F-ED16-4C94-8493-D72EF93A051B}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{6CED0DAA-4CDE-49C9-BA3A-AE163DC3D7AF}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{8a696d12-576b-422e-9712-01b9dd84b446}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{8C9C0DB7-2CBA-40F1-AFE0-C55740DD91A0}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{A2D75874-6750-4931-94C1-C99D3BC9D0C7}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{A7C452EF-8E9F-42EB-9F2B-245613CA0DC9}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{DACA056E-216A-4FD1-84A6-C306A017ECEC}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{E3C9166D-1D39-4D4E-A45D-BC7BE9B00578}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{F6976CF5-68A8-436C-975A-40BE53616D59}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WOW6432Node\CLSID\{E48B2549-D510-4A76-8A5F-FC126A6215F0}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- HKLM\SOFTWARE\Classes\WOW6432Node CLSID mirrors ---
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{2781761E-28E0-4109-99FE-B9D127C57AFE}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{2781761E-28E2-4109-99FE-B9D127C57AFE}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{195B4D07-3DE2-4744-BBF2-D90121AE785B}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{361290c0-cb1b-49ae-9f3e-ba1cbe5dab35}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{45F2C32F-ED16-4C94-8493-D72EF93A051B}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{6CED0DAA-4CDE-49C9-BA3A-AE163DC3D7AF}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{8a696d12-576b-422e-9712-01b9dd84b446}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{8C9C0DB7-2CBA-40F1-AFE0-C55740DD91A0}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{A2D75874-6750-4931-94C1-C99D3BC9D0C7}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{A7C452EF-8E9F-42EB-9F2B-245613CA0DC9}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{DACA056E-216A-4FD1-84A6-C306A017ECEC}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{E3C9166D-1D39-4D4E-A45D-BC7BE9B00578}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{F6976CF5-68A8-436C-975A-40BE53616D59}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\WOW6432Node\CLSID\{E48B2549-D510-4A76-8A5F-FC126A6215F0}', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- Defender Shell Association / AppUserModelId cleanup ---
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\AppUserModelId\Windows.Defender', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKLM\SOFTWARE\Classes\AppUserModelId\Microsoft.Windows.Defender', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+  - !registryKey: {path: 'HKCR\WindowsDefender', operation: delete, option: 'disable-defender', errorAction: log, iso: true}
+
+  # --- Defender firewall rules cleanup ---
+  - !powerShell:
+    command: |
+      $path = 'HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\RestrictedServices\Static\System'
+      @('WindowsDefender-1','WindowsDefender-2','WindowsDefender-3',
+        'WebThreatDefSvc_Allow_In','WebThreatDefSvc_Allow_Out',
+        'WebThreatDefSvc_Block_In','WebThreatDefSvc_Block_Out') |
+      ForEach-Object { Remove-ItemProperty -Path $path -Name $_ -Force -ErrorAction SilentlyContinue }
+    wait: true
+    weight: 5
+    option: 'disable-defender'
+    errorAction: log
+
+  # =======================================================================
+  # AUTORUN/AUTOPLAY
+  # =======================================================================
+
+  # Disable autorun for all drives (prevent USB-based malware)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'NoDriveTypeAutoRun', type: REG_DWORD, data: '255'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'NoDriveTypeAutoRun', type: REG_DWORD, data: '255'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'NoAutorun', type: REG_DWORD, data: '1'}
+  # Disable AutoPlay entirely (EudynOS — complements NoDriveTypeAutoRun)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'DisableAutoplay', type: REG_DWORD, data: '1'}
+  # HKCU mirrors — enforce autorun/autoplay off per-user (Privacy+)
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'NoAutorun', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers', value: 'DisableAutoplay', type: REG_DWORD, data: '1'}
+  # Disable autoplay for non-volume devices (EudynOS)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer', value: 'NoAutoplayfornonVolume', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # REMOTE MANAGEMENT HARDENING
+  # =======================================================================
+
+  # Disable Remote Assistance
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance', value: 'fAllowToGetHelp', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance', value: 'fAllowFullControl', type: REG_DWORD, data: '0'}
+
+  # Disable WinRM (Windows Remote Management)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', value: 'AllowAutoConfig', type: REG_DWORD, data: '0'}
+
+  # PowerShell: allow local scripts but block untrusted remote scripts
+  # EnableScripts=1 + ExecutionPolicy=RemoteSigned is safe and avoids
+  # breaking .ps1-based installers, maintenance scripts, and AME Wizard itself.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell', value: 'EnableScripts', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell', value: 'ExecutionPolicy', type: REG_SZ, data: 'RemoteSigned'}
+
+  # =======================================================================
+  # LLMNR DISABLE (prevents name-resolution poisoning attacks)
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient', value: 'EnableMulticast', type: REG_DWORD, data: '0'}
+  # Disable multicast DNS via Dnscache service parameter (RapidOS defense-in-depth)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters', value: 'EnableMulticast', type: REG_DWORD, data: '0'}
+
+  # =======================================================================
+  # WPAD DISABLE (Web Proxy Auto-Discovery — attack vector)
+  # =======================================================================
+
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad', value: 'WpadOverride', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc', value: 'Start', type: REG_DWORD, data: '4'}
+
+  # =======================================================================
+  # NTLM HARDENING
+  # =======================================================================
+
+  # Enforce NTLMv2 only (disable LM and NTLMv1)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa', value: 'LmCompatibilityLevel', type: REG_DWORD, data: '5'}
+
+  # Disable LM hash storage (forces NTLM hash only)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa', value: 'NoLMHash', type: REG_DWORD, data: '1'}
+
+  # Restrict NTLM: audit both directions (prevents breaking UAC elevation)
+  # Using audit-only (1) instead of deny (2) for outbound because deny can
+  # block credential validation chains during UAC / ShellExecuteEx runas,
+  # causing "A referral was returned from the server" on app elevation.
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0', value: 'RestrictReceivingNTLMTraffic', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0', value: 'RestrictSendingNTLMTraffic', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # ANONYMOUS ACCESS RESTRICTIONS
+  # =======================================================================
+
+  # Restrict anonymous enumeration of SAM accounts
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa', value: 'RestrictAnonymousSAM', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa', value: 'RestrictAnonymous', type: REG_DWORD, data: '1'}
+  # Enable LSA protection auditing (RapidOS)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa', value: 'AuditLevel', type: REG_DWORD, data: '8'}
+
+  # Do not allow anonymous enumeration of shares
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', value: 'RestrictNullSessAccess', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # ADDITIONAL HARDENING
+  # =======================================================================
+
+  # Enable DEP (Data Execution Prevention) for all programs
+  - !cmd: {command: 'bcdedit /set nx AlwaysOn', wait: true, weight: 5, errorAction: log}
+
+  # Keep SEHOP enabled (DisableExceptionChainValidation=0 means do NOT disable)
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel', value: 'DisableExceptionChainValidation', type: REG_DWORD, data: '0'}
+
+  # Removable storage: disable autorun (above) but allow access — blocking
+  # all removable media is too aggressive for most users. Autorun disable
+  # already prevents USB-based worm propagation.
+
+  # Audit process creation — log command line in event log
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit', value: 'ProcessCreationIncludeCmdLine_Enabled', type: REG_DWORD, data: '1'}
+
+  # Enable PowerShell script block logging for security auditing
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging', value: 'EnableScriptBlockLogging', type: REG_DWORD, data: '1'}
+
+  # Prevent password expiry — unlimited max password age (RapidOS)
+  - !cmd: {command: 'net accounts /maxpwage:unlimited', wait: true, weight: 5, errorAction: log}
+
+  # Disable kernel debug mode (RapidOS)
+  - !cmd: {command: 'bcdedit /set debug no', wait: true, weight: 5, errorAction: log}
+
+  # =======================================================================
+  # VULNERABLE DRIVER BLOCKLIST
+  # =======================================================================
+
+  # Enable Microsoft Vulnerable Driver Blocklist
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\CI\Config', value: 'VulnerableDriverBlocklistEnable', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # ENHANCED STORAGE DEVICE SECURITY (AME-10-0.8)
+  # =======================================================================
+
+  # Disable TCG security activation for enhanced storage devices
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\EnhancedStorageDevices', value: 'TCGSecurityActivationDisabled', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # ZONE INFORMATION PRESERVATION
+  # =======================================================================
+
+  # Preserve zone information (Mark of the Web) on downloaded files
+  # Value 2 = preserve MOTW; SmartScreen, Office Protected View, and browser
+  # download warnings all rely on MOTW to identify internet-sourced files.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Attachments', value: 'SaveZoneInformation', type: REG_DWORD, data: '2'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Attachments', value: 'SaveZoneInformation', type: REG_DWORD, data: '2'}
+
+  # =======================================================================
+  # CERTIFICATE PADDING CHECK
+  # =======================================================================
+
+  # Enable certificate padding check (prevents Authenticode signature bypass)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Cryptography\Wintrust\Config', value: 'EnableCertPaddingCheck', type: REG_SZ, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\Cryptography\Wintrust\Config', value: 'EnableCertPaddingCheck', type: REG_SZ, data: '1'}
+
+  # =======================================================================
+  # SUDO SUPPORT (24H2+)
+  # =======================================================================
+
+  # Enable Sudo for Windows (inline mode)
+  - !registryValue:
+      path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Sudo'
+      value: 'Enabled'
+      type: REG_DWORD
+      data: '3'
+      builds: ['>=26100']
+
+  # =======================================================================
+  # MSI INSTALLER IN SAFE MODE
+  # =======================================================================
+
+  # Allow Windows Installer to run in Safe Mode
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal\MSIServer', value: '', type: REG_SZ, data: 'Service'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\SafeBoot\Network\MSIServer', value: '', type: REG_SZ, data: 'Service'}
+
+  # =======================================================================
+  # SPECULATIVE EXECUTION MITIGATIONS — DISABLED FOR PERFORMANCE
+  # =======================================================================
+
+  # Disable Spectre/Meltdown mitigations (5-30% CPU performance gain)
+  # FeatureSettingsOverride=3 disables Spectre V2 + Meltdown kernel patches
+  # FeatureSettingsOverrideMask=3 tells Windows to honor the override value
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management', value: 'FeatureSettingsOverride', type: REG_DWORD, data: '3', option: disable-mitigations}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management', value: 'FeatureSettingsOverrideMask', type: REG_DWORD, data: '3', option: disable-mitigations}
+
+  # --- Advanced Process-Level Mitigations (Atlas Pattern) ---
+  # ╔══════════════════════════════════════════════════════════════════════════╗
+  # ║  ⚠ CRITICAL: Disables ALL process mitigations (CFG, ASLR, DEP, SEHOP) ║
+  # ║  This binary mask overrides kernel-level DEP/SEHOP settings.           ║
+  # ║  ⚠ MAJOR security regression — gaming-only, NOT for daily drivers.     ║
+  # ╚══════════════════════════════════════════════════════════════════════════╝
+  # MitigationOptions: 48-hex-pair bitmask (0=default, 1=enable, 2=disable)
+  #   01:DEP  02:SEHOP  03:ForceASLR  04:Bottom-upASLR  05:HEASLR  06:StrictCFG
+  # Value 222... = disable ALL. User-visible !status warning shown before apply.
+  - !status: {status: 'DISABLING ALL PROCESS MITIGATIONS (CFG/ASLR/DEP) — security regression', option: disable-mitigations}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel', value: 'MitigationOptions', type: REG_BINARY, data: '222222222222222222222222222222222222222222222222', option: disable-mitigations}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel', value: 'MitigationAuditOptions', type: REG_BINARY, data: '222222222222222222222222222222222222222222222222', option: disable-mitigations}
+
+  # --- Anti-Cheat Compatibility Fix (Valorant / VGC) ---
+  # Re-enables CFG for Valorant's anti-cheat to prevent crashes when global mitigations are off.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\vgc.exe', value: 'MitigationOptions', type: REG_BINARY, data: '000000000001000000000000000000000000000000000000', option: disable-mitigations}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\vgc.exe', value: 'MitigationAuditOptions', type: REG_BINARY, data: '000000000000000000000000000000000000000000000000', option: disable-mitigations}
+
+  # =======================================================================
+  # DLL SEARCH ORDER HARDENING
+  # =======================================================================
+
+
+  # Enable safe DLL search order
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager', value: 'SafeDllSearchMode', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager', value: 'CWDIllegalInDllSearch', type: REG_DWORD, data: '2'}
+
+  # Force ASLR for all images (ForceRelocateImages) — defense-in-depth
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management', value: 'MoveImages', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # PRINTER HARDENING (PrintNightmare defense-in-depth)
+  # =======================================================================
+
+  # Only administrators can install printer drivers
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint', value: 'RestrictDriverInstallationToAdministrators', type: REG_DWORD, data: '1'}
+
+  # =======================================================================
+  # WINDOWS 11 REQUIREMENTS BYPASS (ArkanoidOS)
+  # Allows installation/upgrade on unsupported hardware
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SYSTEM\Setup\LabConfig', value: 'BypassSecureBootCheck', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\Setup\LabConfig', value: 'BypassTPMCheck', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\Setup\LabConfig', value: 'BypassCPUCheck', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\Setup\LabConfig', value: 'BypassRAMCheck', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\Setup\LabConfig', value: 'BypassStorageCheck', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SYSTEM\Setup\MoSetup', value: 'AllowUpgradesWithUnsupportedTPMOrCPU', type: REG_DWORD, data: '1'}

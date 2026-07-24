@@ -1,0 +1,341 @@
+---
+title: Bloatware Removal
+description: >
+  Surgically removes all unnecessary AppX packages, system components,
+  OneDrive, Microsoft Edge, Teams, Cortana, and other built-in bloat.
+
+actions:
+  # =======================================================================
+  # CAPTURE APPX STATE BEFORE REMOVALS (for dynamic deprovisioning)
+  # =======================================================================
+
+  - !powerShell:
+      command: |
+        $outFile = Join-Path $env:windir 'ValexPackagesOld.txt'
+        (Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue).PackageFamilyName |
+          Out-File $outFile -Force
+      wait: true
+      weight: 5
+      errorAction: log
+
+  # =======================================================================
+  # APPX PACKAGE REMOVAL — MICROSOFT BLOATWARE
+  # =======================================================================
+
+  # Microsoft 3D apps
+  - !appx: {type: family, name: 'Microsoft.Microsoft3DViewer', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.3DBuilder', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.Print3D', errorAction: log}
+
+  # Microsoft Maps
+  - !appx: {type: family, name: 'Microsoft.WindowsMaps', errorAction: log}
+
+  # Microsoft Weather
+  - !appx: {type: family, name: 'Microsoft.BingWeather', errorAction: log}
+
+  # Microsoft News
+  - !appx: {type: family, name: 'Microsoft.BingNews', errorAction: log}
+
+  # Microsoft Finance
+  - !appx: {type: family, name: 'Microsoft.BingFinance', errorAction: log}
+
+  # Microsoft Sports
+  - !appx: {type: family, name: 'Microsoft.BingSports', errorAction: log}
+
+  # Microsoft Translate
+  - !appx: {type: family, name: 'Microsoft.BingTranslator', errorAction: log}
+
+  # People app
+  - !appx: {type: family, name: 'Microsoft.People', errorAction: log}
+
+  # Mail and Calendar
+  - !appx: {type: family, name: 'microsoft.windowscommunicationsapps', errorAction: log}
+
+  # Microsoft To Do
+  - !appx: {type: family, name: 'Microsoft.Todos', errorAction: log}
+
+  # Alarms & Clock
+  - !appx: {type: family, name: 'Microsoft.WindowsAlarms', errorAction: log}
+
+  # Camera
+  - !appx: {type: family, name: 'Microsoft.WindowsCamera', errorAction: log}
+
+  # Feedback Hub
+  - !appx: {type: family, name: 'Microsoft.WindowsFeedbackHub', errorAction: log}
+
+  # Get Help
+  - !appx: {type: family, name: 'Microsoft.GetHelp', errorAction: log}
+
+  # Tips
+  - !appx: {type: family, name: 'Microsoft.Getstarted', errorAction: log}
+
+  # Mixed Reality Portal
+  - !appx: {type: family, name: 'Microsoft.MixedReality.Portal', errorAction: log}
+
+  # Microsoft Solitaire Collection
+  - !appx: {type: family, name: 'Microsoft.MicrosoftSolitaireCollection', errorAction: log}
+
+  # Sticky Notes
+  - !appx: {type: family, name: 'Microsoft.MicrosoftStickyNotes', errorAction: log}
+
+  # Office Hub
+  - !appx: {type: family, name: 'Microsoft.MicrosoftOfficeHub', errorAction: log}
+
+  # OneNote
+  - !appx: {type: family, name: 'Microsoft.Office.OneNote', errorAction: log}
+
+  # Skype
+  - !appx: {type: family, name: 'Microsoft.SkypeApp', errorAction: log}
+
+  # Groove Music
+  - !appx: {type: family, name: 'Microsoft.ZuneMusic', errorAction: log}
+
+  # Movies & TV
+  - !appx: {type: family, name: 'Microsoft.ZuneVideo', errorAction: log}
+
+  # Phone Link (Your Phone)
+  - !appx: {type: family, name: 'Microsoft.YourPhone', errorAction: log}
+
+  # Power Automate Desktop
+  - !appx: {type: family, name: 'Microsoft.PowerAutomateDesktop', errorAction: log}
+
+  # Clipchamp
+  - !appx: {type: family, name: 'Clipchamp.Clipchamp', errorAction: log}
+
+  # Family Safety
+  - !appx: {type: family, name: 'MicrosoftCorporationII.MicrosoftFamily', errorAction: log}
+
+  # Quick Assist
+  - !appx: {type: family, name: 'MicrosoftCorporationII.QuickAssist', errorAction: log}
+
+  # Teams
+  - !appx: {type: family, name: 'MicrosoftTeams', errorAction: log}
+  - !appx: {type: family, name: 'MSTeams', errorAction: log}
+  - !appx: {type: family, name: '*MicrosoftTeams*', errorAction: log}
+
+  # Cortana
+  - !appx: {type: family, name: 'Microsoft.549981C3F5F10', errorAction: log}
+
+  # Xbox apps
+  - !appx: {type: family, name: 'Microsoft.XboxApp', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.XboxGameOverlay', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.XboxGamingOverlay', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.XboxIdentityProvider', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.XboxSpeechToTextOverlay', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.Xbox.TCUI', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.GamingApp', errorAction: log}
+
+  # Widgets (Windows Web Experience Pack) — Win11 only
+  - !appx: {type: family, name: 'MicrosoftWindows.Client.WebExperience', errorAction: log, builds: ['>=22000']}
+
+  # Dev Home
+  - !appx: {type: family, name: 'Microsoft.Windows.DevHome', errorAction: log}
+  - !appx: {type: family, name: '*DevHome*', errorAction: log}
+
+  # Outlook (new)
+  - !appx: {type: family, name: 'Microsoft.OutlookForWindows', errorAction: log}
+
+  # Voice Recorder
+  - !appx: {type: family, name: 'Microsoft.WindowsSoundRecorder', errorAction: log}
+
+  # Screen Sketch / Snipping Tool (UWP) — users can reinstall from Store
+  - !appx: {type: family, name: 'Microsoft.ScreenSketch', errorAction: log}
+
+  # Copilot
+  - !appx: {type: family, name: '*Copilot*', errorAction: log}
+  - !appx: {type: family, name: 'Microsoft.Windows.Ai.Copilot.Provider', errorAction: log}
+
+  # Windows AI / Recall
+  - !appx: {type: family, name: 'MicrosoftWindows.Client.AIX', errorAction: log}
+  - !appx: {type: family, name: 'MicrosoftWindows.Client.Photon', errorAction: log}
+  - !appx: {type: family, name: '*WindowsAI*', errorAction: log}
+  - !appx: {type: family, name: '*NarratorQuickStart*', errorAction: log}
+
+  # Start Experiences / Game Assist / Cross Device
+  - !appx: {type: family, name: '*StartExperiencesApp*', errorAction: log}
+  - !appx: {type: family, name: '*Edge.GameAssist*', errorAction: log}
+  - !appx: {type: family, name: '*CrossDeviceResume*', errorAction: log}
+  - !appx: {type: family, name: '*WindowsBackup*', errorAction: log}
+  - !appx: {type: family, name: '*Global.IrisService*', errorAction: log}
+  - !appx: {type: family, name: '*Global.Accounts*', errorAction: log}
+  - !appx: {type: family, name: '*Global.ValueBanner*', errorAction: log}
+  - !appx: {type: family, name: '*Global.DesktopSpotlight*', errorAction: log}
+  # Client.CBS — clear cache only (removing breaks Start menu/taskbar on some builds)
+  - !appx: {type: family, name: 'MicrosoftWindows.Client.CBS', operation: clearCache, errorAction: log}
+  # LockApp — clear cache only (removing causes black screen on lock)
+  - !appx: {type: family, name: '*LockApp*', operation: clearCache, errorAction: log}
+  - !appx: {type: family, name: '*ContentDeliveryManager*', errorAction: log}
+
+  # Third-party pre-installed bloat
+  - !appx: {type: family, name: '*SpotifyAB*', errorAction: log}
+  - !appx: {type: family, name: '*Disney*', errorAction: log}
+  - !appx: {type: family, name: '*Dolby*', errorAction: log}
+  - !appx: {type: family, name: 'SamsungElectronics*', errorAction: log}
+  - !appx: {type: family, name: '*AmazonVideo*', errorAction: log}
+  - !appx: {type: family, name: '*Netflix*', errorAction: log}
+  - !appx: {type: family, name: '*Facebook*', errorAction: log}
+  - !appx: {type: family, name: '*Instagram*', errorAction: log}
+  - !appx: {type: family, name: '*Twitter*', errorAction: log}
+  - !appx: {type: family, name: '*TikTok*', errorAction: log}
+  - !appx: {type: family, name: '*Hulu*', errorAction: log}
+  - !appx: {type: family, name: '*king.com*', errorAction: log}
+  - !appx: {type: family, name: '*CandyCrush*', errorAction: log}
+  - !appx: {type: family, name: '*BubbleWitch*', errorAction: log}
+  - !appx: {type: family, name: '*MarchofEmpires*', errorAction: log}
+  - !appx: {type: family, name: '*Duolingo*', errorAction: log}
+  - !appx: {type: family, name: '*EclipseManager*', errorAction: log}
+  - !appx: {type: family, name: '*ActiproSoftware*', errorAction: log}
+  - !appx: {type: family, name: '*Fitbit*', errorAction: log}
+  - !appx: {type: family, name: '*LinkedIn*', errorAction: log}
+  - !appx: {type: family, name: '*PicsArt*', errorAction: log}
+  - !appx: {type: family, name: '*Wunderlist*', errorAction: log}
+  - !appx: {type: family, name: '*Flipboard*', errorAction: log}
+  - !appx: {type: family, name: '*Drawboard*', errorAction: log}
+  - !appx: {type: family, name: '*iHeartRadio*', errorAction: log}
+  - !appx: {type: family, name: '*Shazam*', errorAction: log}
+  - !appx: {type: family, name: '*Adobe.CC*', errorAction: log}
+
+  # =======================================================================
+  # ONEDRIVE REMOVAL
+  # =======================================================================
+
+  - !taskKill: {name: 'OneDrive'}
+  - !taskKill: {name: 'OneDriveSetup'}
+
+  - !cmd:
+    command: >-
+      if exist "%SystemRoot%\SysWOW64\OneDriveSetup.exe" "%SystemRoot%\SysWOW64\OneDriveSetup.exe" /uninstall
+    wait: true
+    weight: 30
+    errorAction: log
+
+  # Prevent OneDrive from reinstalling
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive', value: 'DisableFileSyncNGSC', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive', value: 'DisableFileSync', type: REG_DWORD, data: '1'}
+
+  # Remove OneDrive from Explorer sidebar
+  - !registryKey: {path: 'HKCR\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}', operation: delete, errorAction: log}
+  - !registryKey: {path: 'HKCR\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}', operation: delete, errorAction: log}
+
+  # Cleanup OneDrive folders
+  - !file: {path: '%USERPROFILE%\OneDrive', errorAction: log}
+  - !file: {path: '%LOCALAPPDATA%\Microsoft\OneDrive', errorAction: log}
+  - !file: {path: '%PROGRAMDATA%\Microsoft OneDrive', errorAction: log}
+  - !file: {path: 'C:\OneDriveTemp', errorAction: log}
+
+  # Remove OneDrive scheduled tasks
+  - !scheduledTask: {path: '\OneDrive Reporting Task-*', operation: delete, errorAction: log}
+  - !scheduledTask: {path: '\OneDrive Standalone Update Task-*', operation: delete, errorAction: log}
+
+  # =======================================================================
+  # EDGE REMOVAL SUPPORT
+  # =======================================================================
+
+  # Prevent Edge from being the default and from reinstalling
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'DoNotUpdateToEdgeWithChromium', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\EdgeUpdate', value: 'DoNotUpdateToEdgeWithChromium', type: REG_DWORD, data: '1'}
+
+  # Remove Edge Quick Launch shortcut
+  - !cmd: {command: 'del /f /q "%APPDATA%\Microsoft\Internet Explorer\Quick Launch\Microsoft Edge.lnk" 2>nul', wait: true, weight: 3, errorAction: log}
+
+  # Disable Edge auto-start
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\MicrosoftEdge\Main', value: 'AllowPrelaunch', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'StartupBoostEnabled', type: REG_DWORD, data: '0'}
+  # Allow Edge/EdgeUpdate/EdgeWebView uninstall (ArkanoidOS)
+  - !registryValue: {path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft Edge', value: 'NoRemove', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft Edge Update', value: 'NoRemove', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft EdgeWebView', value: 'NoRemove', type: REG_DWORD, data: '0'}
+
+  # =======================================================================
+  # TEAMS CHAT ICON REMOVAL
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Communications', value: 'ConfigureChatAutoInstall', type: REG_DWORD, data: '0'}
+
+  # =======================================================================
+  # WINDOWS OPTIONAL FEATURES REMOVAL
+  # =======================================================================
+
+  - !powerShell:
+    command: |
+      $caps = @(
+        'Browser.InternetExplorer~~~~0.0.11.0',
+        'App.Support.QuickAssist~~~~0.0.1.0',
+        'Hello.Face.20134~~~~0.0.1.0',
+        'Hello.Face.18967~~~~0.0.1.0',
+        'App.StepsRecorder~~~~0.0.1.0',
+        'MathRecognizer~~~~0.0.1.0',
+        'Microsoft.Windows.WordPad~~~~0.0.1.0',
+        'Microsoft.Windows.PowerShell.ISE~~~~0.0.1.0'
+      )
+      Get-WindowsCapability -Online | Where-Object { $_.State -eq 'Installed' -and $_.Name -in $caps } |
+      ForEach-Object { & dism /online /remove-capability /capabilityname:$($_.Name) /norestart }
+    wait: true
+    weight: 30
+    errorAction: log
+
+  # Disable Windows Media Player
+  - !cmd: {command: 'DISM /Online /Disable-Feature /FeatureName:"WindowsMediaPlayer" /NoRestart', wait: true, weight: 30, errorAction: log}
+
+  # Disable Work Folders
+  - !cmd: {command: 'DISM /Online /Disable-Feature /FeatureName:"WorkFolders-Client" /NoRestart', wait: true, weight: 30, errorAction: log}
+
+  # =======================================================================
+  # PREVENT DEPROVISIONED APPS FROM RETURNING
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsStore\WindowsUpdate', value: 'AutoDownload', type: REG_DWORD, data: '2'}
+
+  # NOTE: AllowAllTrustedApps left at default (1) to allow sideloading.
+  # Dynamic deprovisioning above prevents removed packages from returning.
+
+  # =======================================================================
+  # APPX CACHE CLEARING (after removals)
+  # Prevents stale UI glitches and ghost entries in Start menu
+  # =======================================================================
+
+  - !appx: {type: family, name: '*Client.CBS*', operation: clearCache, errorAction: log}
+  - !appx: {type: family, name: '*StartMenuExperienceHost*', operation: clearCache, errorAction: log}
+  - !appx: {type: family, name: '*Windows.Search*', operation: clearCache, errorAction: log}
+  - !appx: {type: family, name: '*ShellExperienceHost*', operation: clearCache, errorAction: log}
+
+  # =======================================================================
+  # START MENU REBUILD
+  # =======================================================================
+
+  # Rebuild StartMenu cache after AppX changes
+  - !cmd:
+    command: >-
+      del /f /q "%LocalAppData%\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\TempState\StartUnifiedTileModelCache.dat" 2>nul
+    wait: true
+    weight: 3
+    errorAction: log
+
+
+  # =======================================================================
+  # DYNAMIC DEPROVISIONING — PREVENT RETURN AFTER UPDATES
+  # Captures AppX state before/after removals and registers all removed
+  # packages for deprovisioning automatically. This replaces a static list
+  # and adapts to any Windows build or edition.
+  # =======================================================================
+
+  - !powerShell:
+      command: |
+        $regBase = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned'
+        $oldFile = Join-Path $env:windir 'ValexPackagesOld.txt'
+        if (Test-Path $oldFile) {
+          $old = Get-Content $oldFile
+          $current = (Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue).PackageFamilyName
+          $removed = $old | Where-Object { $current -notcontains $_ }
+          foreach ($pkg in $removed) {
+            # Skip empty strings (blank lines from the old file) and null entries
+            if ([string]::IsNullOrWhiteSpace($pkg)) { continue }
+            # Validate the package name has no invalid path characters
+            if ($pkg.IndexOfAny([System.IO.Path]::GetInvalidPathChars()) -ge 0) { continue }
+            New-Item -Path "$regBase\$pkg" -Force -ErrorAction SilentlyContinue | Out-Null
+          }
+          Remove-Item $oldFile -Force -ErrorAction SilentlyContinue
+        }
+      wait: true
+      weight: 15
+      errorAction: log

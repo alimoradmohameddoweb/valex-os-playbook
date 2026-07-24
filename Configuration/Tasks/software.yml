@@ -1,0 +1,309 @@
+---
+title: Software Installation
+description: >
+  Installs user-selected browser and essential tools using native AME
+  Wizard actions for ISO injection compatibility.
+
+actions:
+  # =======================================================================
+  # BROWSER — FIREFOX
+  # =======================================================================
+
+  - !status: {status: 'Downloading Mozilla Firefox...'}
+  - !download:
+    option: 'browser-firefox'
+    url: 'https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US'
+    destination: 'firefox_setup.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'firefox'
+  - !run:
+    exeDir: true
+    exe: 'firefox_setup.exe'
+    args: '/S /ALLUSERS=1'
+    weight: 80
+    wait: true
+    option: 'browser-firefox'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # Firefox privacy/performance policies
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'DisableTelemetry', type: REG_DWORD, data: '1', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'DisableDefaultBrowserAgent', type: REG_DWORD, data: '1', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'DisablePocket', type: REG_DWORD, data: '1', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'DisableFirefoxStudies', type: REG_DWORD, data: '1', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'OverrideFirstRunPage', type: REG_SZ, data: '', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'OverridePostUpdatePage', type: REG_SZ, data: '', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'NetworkPrediction', type: REG_DWORD, data: '0', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'CaptivePortal', type: REG_DWORD, data: '0', option: browser-firefox}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Mozilla\Firefox', value: 'DisableFormHistory', type: REG_DWORD, data: '1', option: browser-firefox}
+
+  # =======================================================================
+  # BROWSER — BRAVE
+  # =======================================================================
+
+  - !status: {status: 'Downloading Brave Browser...'}
+  - !download:
+    option: 'browser-brave'
+    url: 'https://laptop-updates.brave.com/latest/winx64'
+    destination: 'brave_setup.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'brave'
+  - !run:
+    exeDir: true
+    exe: 'brave_setup.exe'
+    args: '/silent /install'
+    weight: 80
+    wait: true
+    option: 'browser-brave'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # Brave privacy policies
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'MetricsReportingEnabled', type: REG_DWORD, data: '0', option: browser-brave}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'BraveRewardsDisabled', type: REG_DWORD, data: '1', option: browser-brave}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'BraveVPNDisabled', type: REG_DWORD, data: '1', option: browser-brave}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'BraveWalletDisabled', type: REG_DWORD, data: '1', option: browser-brave}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'IPFSEnabled', type: REG_DWORD, data: '0', option: browser-brave}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'TorDisabled', type: REG_DWORD, data: '1', option: browser-brave}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\BraveSoftware\Brave', value: 'BraveAIChatEnabled', type: REG_DWORD, data: '0', option: browser-brave}
+
+  # =======================================================================
+  # BROWSER — CHROME (Enterprise MSI)
+  # =======================================================================
+
+  - !status: {status: 'Downloading Google Chrome...'}
+  - !download:
+    option: 'browser-chrome'
+    url: 'https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi'
+    destination: 'chrome.msi'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'chrome'
+  - !run:
+    exeDir: true
+    exe: 'msiexec.exe'
+    args: '/i "chrome.msi" /qn /quiet /norestart ALLUSERS=1 REBOOT=ReallySuppress'
+    weight: 80
+    wait: true
+    option: 'browser-chrome'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # =======================================================================
+  # NANAZIP (requires MSIX + license via GitHub API)
+  # =======================================================================
+
+  - !status: {status: 'Downloading NanaZip...'}
+  - !download:
+    git: 'https://github.com/M2Team/NanaZip'
+    regex: '.*\.msixbundle'
+    destination: 'nanazip.msixbundle'
+    option: install-nanazip
+    package: 'nanazip'
+  - !download:
+    git: 'https://github.com/M2Team/NanaZip'
+    regex: '.*\.xml'
+    destination: 'nanazip.xml'
+    option: install-nanazip
+    package: 'nanazip'
+  - !powerShell:
+    command: 'Add-AppxProvisionedPackage -Online -PackagePath nanazip.msixbundle -LicensePath nanazip.xml'
+    exeDir: true
+    wait: true
+    option: install-nanazip
+    errorAction: log
+
+  # =======================================================================
+  # EDGE POLICIES
+  # =======================================================================
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'DefaultBrowserSettingEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'HideFirstRunExperience', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'PersonalizationReportingEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'MetricsReportingEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'SendSiteInfoToImproveServices', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'DiagnosticData', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'EdgeShoppingAssistantEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'CopilotCDPPageContext', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'HubsSidebarEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'EdgeCollectionsEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'CopilotPageContext', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'EdgeEntraCopilotPageContext', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'Microsoft365CopilotChatIconEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'EdgeHistoryAISearchEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'ComposeInlineEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'GenAILocalFoundationalModelSettings', type: REG_DWORD, data: '2'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'ShowRecommendationsEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'DiscoverPageContextEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'SearchSuggestEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'SpotlightExperiencesAndSuggestionsEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'MicrosoftEdgeInsiderPromotionEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'TyposquattingCheckerEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'UserFeedbackAllowed', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'ConfigureDoNotTrack', type: REG_DWORD, data: '1'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'AlternateErrorPagesEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'ShowMicrosoftRewards', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'WebWidgetAllowed', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'EdgeAssetDeliveryServiceEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'WalletDonationEnabled', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'UpdateDefault', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'AutoUpdateCheckPeriodMinutes', type: REG_DWORD, data: '0'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate', value: 'CreateDesktopShortcutDefault', type: REG_DWORD, data: '0'}
+  - !cmd: {command: 'del /f /q "%PUBLIC%\Desktop\Microsoft Edge.lnk" 2>nul & del /f /q "%USERPROFILE%\Desktop\Microsoft Edge.lnk" 2>nul', wait: true, weight: 3, errorAction: log}
+
+  # =======================================================================
+  # LEGACY GAME SUPPORT (DirectPlay)
+  # =======================================================================
+
+  - !status: {status: 'Enabling Legacy Game Support (DirectPlay)...'}
+  - !cmd:
+    command: 'DISM /Online /Enable-Feature /FeatureName:"DirectPlay" /NoRestart /All'
+    wait: true
+    weight: 30
+    option: 'enable-directplay'
+    errorAction: log
+
+  # =======================================================================
+  # VISUAL C++ RUNTIMES (Official Microsoft sources)
+  # =======================================================================
+
+  - !status: {status: 'Installing Visual C++ Runtimes...'}
+
+  # VC++ 2022/2019/2017/2015 — v14 (covers 99% of modern software)
+  - !download:
+    option: 'install-vcredist'
+    url: 'https://aka.ms/vc14/vc_redist.x64.exe'
+    destination: 'vc_redist.x64.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'vcredist'
+  - !run:
+    exeDir: true
+    exe: 'vc_redist.x64.exe'
+    args: '/install /quiet /norestart'
+    weight: 30
+    wait: true
+    option: 'install-vcredist'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # VC++ 2013 (12.0)
+  - !download:
+    option: 'install-vcredist'
+    url: 'https://aka.ms/highdpimfc2013x64enu'
+    destination: 'vc2013_redist.x64.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'vcredist'
+  - !run:
+    exeDir: true
+    exe: 'vc2013_redist.x64.exe'
+    args: '/install /quiet /norestart'
+    weight: 20
+    wait: true
+    option: 'install-vcredist'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # VC++ 2012 (11.0)
+  - !download:
+    option: 'install-vcredist'
+    url: 'https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe'
+    destination: 'vc2012_redist.x64.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'vcredist'
+  - !run:
+    exeDir: true
+    exe: 'vc2012_redist.x64.exe'
+    args: '/install /quiet /norestart'
+    weight: 20
+    wait: true
+    option: 'install-vcredist'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # VC++ 2010 (10.0)
+  - !download:
+    option: 'install-vcredist'
+    url: 'https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe'
+    destination: 'vc2010_redist.x64.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'vcredist'
+  - !run:
+    exeDir: true
+    exe: 'vc2010_redist.x64.exe'
+    args: '/install /quiet /norestart'
+    weight: 20
+    wait: true
+    option: 'install-vcredist'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # VC++ 2008 (9.0) — x64
+  - !download:
+    option: 'install-vcredist'
+    url: 'https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe'
+    destination: 'vc2008_redist.x64.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'vcredist'
+  - !run:
+    exeDir: true
+    exe: 'vc2008_redist.x64.exe'
+    args: '/q'
+    weight: 15
+    wait: true
+    option: 'install-vcredist'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # VC++ 2005 (8.0) — x64
+  - !download:
+    option: 'install-vcredist'
+    url: 'https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208B48C4FB/vcredist_x64.exe'
+    destination: 'vc2005_redist.x64.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'vcredist'
+  - !run:
+    exeDir: true
+    exe: 'vc2005_redist.x64.exe'
+    args: '/q'
+    weight: 15
+    wait: true
+    option: 'install-vcredist'
+    handleExitCodes: {3010: log}
+    errorAction: log
+
+  # =======================================================================
+  # LEGACY DIRECTX RUNTIMES
+  # =======================================================================
+
+  - !status: {status: 'Installing Legacy DirectX Runtimes...'}
+  - !download:
+    option: 'install-directx'
+    url: 'https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe'
+    destination: 'directx_redist.exe'
+    overwrite: true
+    cpuArch: 'X64'
+    package: 'directx'
+  - !powerShell:
+    command: |
+      $extractDir = Join-Path $env:TEMP 'dxextract'
+      New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+      $p = Start-Process -FilePath 'directx_redist.exe' -ArgumentList '/Q','/C',"/T:`"$extractDir`"" -Wait -PassThru
+      if ($p.ExitCode -ne 0) { throw "IExpress extraction failed with exit code $($p.ExitCode)" }
+      $setup = Join-Path $extractDir 'dxsetup.exe'
+      if (-not (Test-Path $setup)) { throw "dxsetup.exe not found after extraction at: $setup" }
+      $p2 = Start-Process -FilePath $setup -ArgumentList '/silent' -Wait -PassThru
+      exit $p2.ExitCode
+    exeDir: true
+    wait: true
+    weight: 40
+    option: 'install-directx'
+    handleExitCodes: {3010: log}
+    errorAction: log
